@@ -1,18 +1,33 @@
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 import asyncio
 import os
 from dotenv import load_dotenv
 import random
+from questions import INTERVIEW_QUESTIONS
+from vocabulary import VOCABULARY
+from mc_questions import MC_QUESTIONS
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")  # Load your token securely
 
+# Store user states: user_id -> correct answer
+user_current_answer = {}
+user_scores = {}
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Hi! I'm your Reminder Bot. Use /remind <seconds> <message> to set a reminder.")
+    name = update.effective_user.first_name
+    await update.message.reply_text(f"👋 Hi, {name}! I'm your Python Learning Bot. Use /help to see what I can do.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Use this format:\n/remind 10 Take a break")
+    await update.message.reply_text(
+        "/start - Welcome message\n"
+        "/remind <seconds> <message> - Set a reminder\n"
+        "/question - Get a Python multiple-choice question\n"
+        "/vocab - Get 10 random Python terms with definitions\n"
+        "/score - Show your quiz score\n"
+        "/help - Show this help message"
+    )
 
 async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -25,71 +40,41 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except (IndexError, ValueError):
         await update.message.reply_text("❗ Use this format: /remind 10 Take a break")
 
-INTERVIEW_QUESTIONS = [
-    "What is a list comprehension in Python?",
-    "Explain the difference between a list and a tuple.",
-    "What is an API?",
-    "Describe the concept of Object-Oriented Programming.",
-    "What is a foreign key in SQL?",
-    "Explain the difference between a stack and a queue.",
-    "What is version control and why is it important?",
-    "How do you handle errors in Python?",
-    "What is the purpose of the 'self' keyword in Python classes?",
-    "What is normalization in databases?"
-]
-
 async def question(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    question_text = random.choice(INTERVIEW_QUESTIONS)
-    await update.message.reply_text(f"\U0001F4AC Interview Question:\n\n{question_text}")
-
-VOCABULARY = {
-    "API": {
-        "en": "A set of functions and protocols that allow different software applications to communicate with each other.",
-        "ru": "Набор функций и протоколов, позволяющих различным программам взаимодействовать друг с другом."
-    },
-    "OOP": {
-        "en": "Object-Oriented Programming, a programming paradigm based on the concept of objects.",
-        "ru": "Объектно-ориентированное программирование, парадигма программирования, основанная на концепции объектов."
-    },
-    "List Comprehension": {
-        "en": "A concise way to create lists in Python using a single line of code.",
-        "ru": "Краткий способ создания списков в Python в одной строке кода."
-    },
-    "Tuple": {
-        "en": "An immutable sequence type in Python.",
-        "ru": "Неизменяемый тип последовательности в Python."
-    },
-    "Foreign Key": {
-        "en": "A field in a database table that creates a relationship between two tables.",
-        "ru": "Поле в таблице базы данных, создающее связь между двумя таблицами."
-    },
-    "Stack": {
-        "en": "A data structure that follows Last-In-First-Out (LIFO) principle.",
-        "ru": "Структура данных, работающая по принципу LIFO (последний пришёл — первый ушёл)."
-    },
-    "Queue": {
-        "en": "A data structure that follows First-In-First-Out (FIFO) principle.",
-        "ru": "Структура данных, работающая по принципу FIFO (первый пришёл — первый ушёл)."
-    },
-    "Normalization": {
-        "en": "The process of organizing data in a database to reduce redundancy.",
-        "ru": "Процесс организации данных в базе данных для уменьшения избыточности."
-    },
-    "Version Control": {
-        "en": "A system that records changes to files over time so you can recall specific versions later.",
-        "ru": "Система, которая фиксирует изменения файлов с течением времени, чтобы можно было восстановить определённые версии."
-    },
-    "Exception Handling": {
-        "en": "A way to handle errors or exceptions in a program gracefully.",
-        "ru": "Способ обработки ошибок или исключений в программе без её аварийного завершения."
-    }
-}
+    q = random.choice(MC_QUESTIONS)
+    user_id = update.effective_user.id
+    user_current_answer[user_id] = (q["answer"], q.get("explanation", None))
+    options = '\n'.join([f"{k}) {v}" for k, v in q["options"].items()])
+    await update.message.reply_text(f"\U0001F4AC {q['question']}\n\n{options}\n\nReply with a, b, c, or d.")
 
 async def vocab(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    term, defs = random.choice(list(VOCABULARY.items()))
-    await update.message.reply_text(
-        f"\U0001F4D6 {term}:\n{defs['en']}\n\n🇷🇺 {defs['ru']}"
-    )
+    terms = random.sample(list(VOCABULARY.items()), k=10)
+    messages = [f"\U0001F4D6 {term}:\n{defs['en']}\n🇷🇺 {defs['ru']}" for term, defs in terms]
+    await update.message.reply_text("\n\n".join(messages))
+
+async def score(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    score = user_scores.get(user_id, 0)
+    await update.message.reply_text(f"🏅 Your score: {score} correct answers!")
+
+async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    text = update.message.text.strip().lower()
+    if user_id in user_current_answer and text in ["a", "b", "c", "d"]:
+        correct, explanation = user_current_answer[user_id]
+        if text == correct:
+            user_scores[user_id] = user_scores.get(user_id, 0) + 1
+            msg = "✅ Correct!"
+        else:
+            msg = f"❌ Incorrect. The correct answer was '{correct}'."
+        if explanation:
+            msg += f"\nExplanation: {explanation}"
+        await update.message.reply_text(msg)
+        del user_current_answer[user_id]
+    elif text in ["a", "b", "c", "d"]:
+        await update.message.reply_text("❗ Please use /question to get a new question first.")
+    else:
+        await update.message.reply_text("❓ I didn't understand that. Use /help to see available commands.")
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -99,6 +84,8 @@ def main():
     app.add_handler(CommandHandler("remind", remind))
     app.add_handler(CommandHandler("question", question))
     app.add_handler(CommandHandler("vocab", vocab))
+    app.add_handler(CommandHandler("score", score))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
 
     print("🤖 Bot is running...")
     app.run_polling()
