@@ -32,7 +32,7 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     topic = random.choice(INTERVIEW_TOPICS)
     prompt = f"Give me a junior-level English interview question about {topic} for a software developer."
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7
