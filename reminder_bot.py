@@ -4,7 +4,6 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import random
-from questions import INTERVIEW_QUESTIONS
 from vocabulary import VOCABULARY
 from mc_questions import MC_QUESTIONS
 load_dotenv()
