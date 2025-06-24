@@ -10,6 +10,8 @@ from vosk import Model, KaldiRecognizer
 import wave
 import subprocess
 import json
+import urllib.request
+import zipfile
 
 load_dotenv()
 
@@ -19,8 +21,21 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")  # Load your token securely
 user_current_answer = {}
 user_scores = {}
 
+# Define model path
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "vosk-model-small-en-us-0.15")
+MODEL_ZIP = os.path.join(os.path.dirname(__file__), "vosk-model-small-en-us-0.15.zip")
+MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+
+# Download and unzip the model if not present
+if not os.path.isdir(MODEL_DIR):
+    print("Vosk model not found, downloading...")
+    urllib.request.urlretrieve(MODEL_URL, MODEL_ZIP)
+    with zipfile.ZipFile(MODEL_ZIP, 'r') as zip_ref:
+        zip_ref.extractall(os.path.dirname(__file__))
+    os.remove(MODEL_ZIP)
+
 # Load the Vosk model once at startup
-vosk_model = Model("vosk-model-small-en-us-0.15")
+vosk_model = Model(MODEL_DIR)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
