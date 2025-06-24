@@ -6,6 +6,11 @@ from dotenv import load_dotenv
 import random
 from vocabulary import VOCABULARY
 from mc_questions import MC_QUESTIONS
+from vosk import Model, KaldiRecognizer
+import wave
+import subprocess
+import json
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")  # Load your token securely
@@ -13,6 +18,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")  # Load your token securely
 # Store user states: user_id -> correct answer
 user_current_answer = {}
 user_scores = {}
+
+# Load the Vosk model once at startup
+vosk_model = Model("vosk-model-small-en-us-0.15")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
@@ -75,6 +83,32 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❓ I didn't understand that. Use /help to see available commands.")
 
+async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Download the voice file from Telegram
+    file = await context.bot.get_file(update.message.voice.file_id)
+    file_path = "voice.ogg"
+    await file.download_to_drive(file_path)
+
+    # Convert OGG to WAV (Vosk needs WAV PCM)
+    wav_path = "voice.wav"
+    subprocess.run(["ffmpeg", "-i", file_path, "-ar", "16000", "-ac", "1", wav_path], check=True)
+
+    # Transcribe with Vosk
+    wf = wave.open(wav_path, "rb")
+    rec = KaldiRecognizer(vosk_model, wf.getframerate())
+    data = wf.readframes(wf.getnframes())
+    if rec.AcceptWaveform(data):
+        result = rec.Result()
+        text = json.loads(result)["text"]
+    else:
+        text = "Sorry, I couldn't understand the audio."
+
+    await update.message.reply_text(f"🗣 You said: {text}")
+
+    # Clean up
+    os.remove(file_path)
+    os.remove(wav_path)
+
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -85,6 +119,7 @@ def main():
     app.add_handler(CommandHandler("vocab", vocab))
     app.add_handler(CommandHandler("score", score))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
+    app.add_handler(MessageHandler(filters.VOICE, voice_handler))
 
     print("🤖 Bot is running...")
     app.run_polling()
