@@ -3,7 +3,7 @@
 A Telegram bot for learning Python interactively! Features include:
 - Multiple-choice Python quiz questions with explanations
 - Vocabulary training with English and Russian definitions
-- Audio recognition: transcribe and evaluate user voice messages using Vosk
+- Audio recognition: transcribe and evaluate user voice messages (Vosk in development, switching to OpenAI/Google soon)
 - Reminders and motivational messages
 
 ## Features
@@ -44,7 +44,8 @@ A Telegram bot for learning Python interactively! Features include:
 ## Roadmap
 - [x] Multiple-choice questions with explanations
 - [x] Vocabulary with EN/RU definitions
-- [x] Audio recognition with Vosk
+- [x] Audio recognition with Vosk (did not work reliably in production)
+- [ ] Switch to OpenAI Whisper or Google Cloud Speech-to-Text for audio recognition
 - [ ] Pronunciation scoring and feedback
 - [ ] Inline buttons for answering questions
 - [ ] User leaderboards and statistics
