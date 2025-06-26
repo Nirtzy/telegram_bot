@@ -182,8 +182,9 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(mp3_path)
 
 def main():
+    print("Starting main()...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-
+    print("App built.")
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("remind", remind))
@@ -193,12 +194,11 @@ def main():
     app.add_handler(CommandHandler("pronounce", pronounce))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
     app.add_handler(MessageHandler(filters.VOICE, voice_handler))
-
     print("🤖 Bot is running...")
-    WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # e.g., "https://your-app.onrender.com"
+    WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
     WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
     WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
-
+    print("About to run webhook...")
     app.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 10000)),
