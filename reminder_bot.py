@@ -114,7 +114,7 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Generate TTS audio with ElevenLabs
     api_key = os.getenv("ELEVENLABS_API_KEY")
-    voice_id = "Rachel"  # You can use a specific voice or let ElevenLabs pick default
+    voice_id = "21m00Tcm4TlvDq8ikWAM"  # You can use a specific voice or let ElevenLabs pick default
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         "xi-api-key": api_key,
@@ -135,6 +135,7 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_voice(audio_file)
         os.remove(audio_path)
     else:
+        print("ElevenLabs error:", response.status_code, response.text)
         await update.message.reply_text("❗ Sorry, could not generate pronunciation audio.")
 
 async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
