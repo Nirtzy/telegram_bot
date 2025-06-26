@@ -6,37 +6,19 @@ from dotenv import load_dotenv
 import random
 from vocabulary import VOCABULARY
 from mc_questions import MC_QUESTIONS
-from vosk import Model, KaldiRecognizer
-import wave
+import openai
 import subprocess
 import json
-import urllib.request
-import zipfile
+import requests
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")  # Load your token securely
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Store user states: user_id -> correct answer
 user_current_answer = {}
 user_scores = {}
-
-# Use the large Vosk model
-MODEL_NAME = "vosk-model-en-us-0.22"
-MODEL_DIR = os.path.join(os.path.dirname(__file__), MODEL_NAME)
-MODEL_ZIP = os.path.join(os.path.dirname(__file__), f"{MODEL_NAME}.zip")
-MODEL_URL = f"https://alphacephei.com/vosk/models/{MODEL_NAME}.zip"
-
-# Download and unzip the model if not present
-if not os.path.isdir(MODEL_DIR):
-    print("Vosk large model not found, downloading...")
-    urllib.request.urlretrieve(MODEL_URL, MODEL_ZIP)
-    with zipfile.ZipFile(MODEL_ZIP, 'r') as zip_ref:
-        zip_ref.extractall(os.path.dirname(__file__))
-    os.remove(MODEL_ZIP)
-
-# Load the Vosk model once at startup
-vosk_model = Model(MODEL_DIR)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
@@ -105,25 +87,28 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_path = "voice.ogg"
     await file.download_to_drive(file_path)
 
-    # Convert OGG to WAV (Vosk needs WAV PCM)
-    wav_path = "voice.wav"
-    subprocess.run(["ffmpeg", "-i", file_path, "-ar", "16000", "-ac", "1", wav_path], check=True)
+    # Convert OGG to MP3 (Whisper accepts mp3, mp4, mpeg, mpga, m4a, wav, or webm)
+    mp3_path = "voice.mp3"
+    subprocess.run(["ffmpeg", "-i", file_path, mp3_path], check=True)
 
-    # Transcribe with Vosk
-    wf = wave.open(wav_path, "rb")
-    rec = KaldiRecognizer(vosk_model, wf.getframerate())
-    data = wf.readframes(wf.getnframes())
-    if rec.AcceptWaveform(data):
-        result = rec.Result()
-        text = json.loads(result)["text"]
-    else:
-        text = "Sorry, I couldn't understand the audio."
+    # Send to OpenAI Whisper API
+    with open(mp3_path, "rb") as audio_file:
+        response = requests.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+            files={"file": audio_file},
+            data={"model": "whisper-1"}
+        )
+        if response.status_code == 200:
+            text = response.json().get("text", "(no text returned)")
+        else:
+            text = f"Sorry, there was an error: {response.text}"
 
     await update.message.reply_text(f"🗣 You said: {text}")
 
     # Clean up
     os.remove(file_path)
-    os.remove(wav_path)
+    os.remove(mp3_path)
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
