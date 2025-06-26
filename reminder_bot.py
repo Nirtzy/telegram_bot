@@ -10,6 +10,7 @@ import openai
 import subprocess
 import json
 import requests
+import difflib
 
 load_dotenv()
 
@@ -19,6 +20,23 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Store user states: user_id -> correct answer
 user_current_answer = {}
 user_scores = {}
+
+# Add a list of phrases for pronunciation practice
+PHRASES = [
+    "The quick brown fox jumps over the lazy dog.",
+    "Python is a powerful programming language.",
+    "Artificial intelligence is the future.",
+    "Practice makes perfect.",
+    "Never stop learning.",
+    "Hello, how are you today?",
+    "Can you pronounce this sentence clearly?",
+    "Consistency is the key to success.",
+    "I enjoy solving challenging problems.",
+    "Let's improve our English pronunciation."
+]
+
+# Store user pronunciation state: user_id -> phrase
+user_pronounce_phrase = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
@@ -31,6 +49,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/question - Get a Python multiple-choice question\n"
         "/vocab - Get 10 random Python terms with definitions\n"
         "/score - Show your quiz score\n"
+        "/pronounce - Practice pronunciation\n"
         "/help - Show this help message"
     )
 
@@ -81,17 +100,52 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❓ I didn't understand that. Use /help to see available commands.")
 
+async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import requests
+    import tempfile
+    import shutil
+    import uuid
+
+    user_id = update.effective_user.id
+    phrase = random.choice(PHRASES)
+    user_pronounce_phrase[user_id] = phrase
+
+    await update.message.reply_text(f"🔊 Please listen and repeat:\n\n{phrase}")
+
+    # Generate TTS audio with ElevenLabs
+    api_key = os.getenv("ELEVENLABS_API_KEY")
+    voice_id = "Rachel"  # You can use a specific voice or let ElevenLabs pick default
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "xi-api-key": api_key,
+        "Content-Type": "application/json"
+    }
+    data = {
+        "text": phrase,
+        "model_id": "eleven_monolingual_v1"
+    }
+    response = requests.post(url, headers=headers, json=data, stream=True)
+    if response.status_code == 200:
+        # Save audio to a temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+            shutil.copyfileobj(response.raw, f)
+            audio_path = f.name
+        # Send audio to user
+        with open(audio_path, "rb") as audio_file:
+            await update.message.reply_voice(audio_file)
+        os.remove(audio_path)
+    else:
+        await update.message.reply_text("❗ Sorry, could not generate pronunciation audio.")
+
 async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Download the voice file from Telegram
+    user_id = update.effective_user.id
     file = await context.bot.get_file(update.message.voice.file_id)
     file_path = "voice.ogg"
     await file.download_to_drive(file_path)
-
-    # Convert OGG to MP3 (Whisper accepts mp3, mp4, mpeg, mpga, m4a, wav, or webm)
     mp3_path = "voice.mp3"
     subprocess.run(["ffmpeg", "-i", file_path, mp3_path], check=True)
 
-    # Send to OpenAI Whisper API
+    # Transcribe with Whisper
     with open(mp3_path, "rb") as audio_file:
         response = requests.post(
             "https://api.openai.com/v1/audio/transcriptions",
@@ -104,9 +158,25 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text = f"Sorry, there was an error: {response.text}"
 
-    await update.message.reply_text(f"🗣 You said: {text}")
+    # Check if user is in pronunciation mode
+    if user_id in user_pronounce_phrase:
+        target = user_pronounce_phrase[user_id]
+        # Evaluate similarity
+        ratio = difflib.SequenceMatcher(None, text.lower(), target.lower()).ratio()
+        percent = int(ratio * 100)
+        if percent > 90:
+            feedback = "🌟 Excellent pronunciation!"
+        elif percent > 75:
+            feedback = "👍 Good job! A little more practice and you'll be perfect."
+        elif percent > 50:
+            feedback = "🙂 Not bad, but try to be clearer."
+        else:
+            feedback = "🔄 Let's try again! Listen carefully and repeat."
+        await update.message.reply_text(f"You said: {text}\n\nSimilarity: {percent}%\n{feedback}")
+        del user_pronounce_phrase[user_id]
+    else:
+        await update.message.reply_text(f"🗣 You said: {text}")
 
-    # Clean up
     os.remove(file_path)
     os.remove(mp3_path)
 
@@ -119,6 +189,7 @@ def main():
     app.add_handler(CommandHandler("question", question))
     app.add_handler(CommandHandler("vocab", vocab))
     app.add_handler(CommandHandler("score", score))
+    app.add_handler(CommandHandler("pronounce", pronounce))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
     app.add_handler(MessageHandler(filters.VOICE, voice_handler))
 
