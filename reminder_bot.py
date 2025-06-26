@@ -195,7 +195,15 @@ def main():
     app.add_handler(MessageHandler(filters.VOICE, voice_handler))
 
     print("🤖 Bot is running...")
-    app.run_polling()
+    WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # e.g., "https://your-app.onrender.com"
+    WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+    WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+        webhook_url=WEBHOOK_URL,
+    )
 
 if __name__ == '__main__':
     main()
