@@ -115,7 +115,7 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Generate TTS audio with ElevenLabs
     api_key = os.getenv("ELEVENLABS_API_KEY")
-    voice_id = "21m00Tcm4TlvDq8ikWAM"  # You can use a specific voice or let ElevenLabs pick default
+    voice_id = "pNInz6obpgDQGcFmaJgB"  # Default voice (Adam)
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         "xi-api-key": api_key,
