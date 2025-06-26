@@ -1,3 +1,4 @@
+print("reminder_bot.py is starting up...")
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 import asyncio
@@ -194,16 +195,8 @@ def main():
     app.add_handler(CommandHandler("pronounce", pronounce))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
     app.add_handler(MessageHandler(filters.VOICE, voice_handler))
-    print("🤖 Bot is running...")
-    WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
-    WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-    WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
-    print("About to run webhook...")
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000)),
-        webhook_url=WEBHOOK_URL,
-    )
+    print("🤖 Bot is running in polling mode...")
+    app.run_polling()
 
 if __name__ == '__main__':
     main()
