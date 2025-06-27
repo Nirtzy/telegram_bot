@@ -12,7 +12,6 @@ import subprocess
 import json
 import requests
 import difflib
-from elevenlabs import generate, set_api_key
 
 load_dotenv()
 
@@ -120,24 +119,31 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        set_api_key(api_key)
+        # Use direct API call
+        url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"  # Default voice ID
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json"
+        }
+        data = {
+            "text": phrase,
+            "model_id": "eleven_monolingual_v1"
+        }
         
-        # Generate audio using the default voice
-        audio = generate(
-            text=phrase,
-            voice="Adam",  # Use default voice name instead of ID
-            model="eleven_monolingual_v1"
-        )
-        
-        # Save audio to a temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-            f.write(audio)
-            audio_path = f.name
-            
-        # Send audio to user
-        with open(audio_path, "rb") as audio_file:
-            await update.message.reply_voice(audio_file)
-        os.remove(audio_path)
+        response = requests.post(url, headers=headers, json=data)
+        if response.status_code == 200:
+            # Save audio to a temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+                f.write(response.content)
+                audio_path = f.name
+                
+            # Send audio to user
+            with open(audio_path, "rb") as audio_file:
+                await update.message.reply_voice(audio_file)
+            os.remove(audio_path)
+        else:
+            print(f"ElevenLabs API error: {response.status_code} - {response.text}")
+            await update.message.reply_text("❗ Sorry, could not generate pronunciation audio.")
         
     except Exception as e:
         print(f"ElevenLabs error: {e}")
@@ -198,26 +204,33 @@ async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        set_api_key(api_key)
+        # Use direct API call
+        url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"  # Default voice ID
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json"
+        }
+        data = {
+            "text": "Hello! This is a test of ElevenLabs text to speech.",
+            "model_id": "eleven_monolingual_v1"
+        }
         
-        # Generate a simple test audio
-        audio = generate(
-            text="Hello! This is a test of ElevenLabs text to speech.",
-            voice="Adam",
-            model="eleven_monolingual_v1"
-        )
-        
-        # Save audio to a temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-            f.write(audio)
-            audio_path = f.name
+        response = requests.post(url, headers=headers, json=data)
+        if response.status_code == 200:
+            # Save audio to a temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+                f.write(response.content)
+                audio_path = f.name
+                
+            # Send audio to user
+            with open(audio_path, "rb") as audio_file:
+                await update.message.reply_voice(audio_file)
+            os.remove(audio_path)
             
-        # Send audio to user
-        with open(audio_path, "rb") as audio_file:
-            await update.message.reply_voice(audio_file)
-        os.remove(audio_path)
-        
-        await update.message.reply_text("✅ ElevenLabs TTS test successful!")
+            await update.message.reply_text("✅ ElevenLabs TTS test successful!")
+        else:
+            print(f"ElevenLabs API error: {response.status_code} - {response.text}")
+            await update.message.reply_text(f"❌ ElevenLabs test failed: API returned {response.status_code}")
         
     except Exception as e:
         print(f"ElevenLabs test error: {e}")
