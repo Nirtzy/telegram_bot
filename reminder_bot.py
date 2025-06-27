@@ -12,6 +12,7 @@ import subprocess
 import json
 import requests
 import difflib
+from elevenlabs.client import ElevenLabs
 
 load_dotenv()
 
@@ -104,7 +105,6 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import tempfile
-    import shutil
 
     user_id = update.effective_user.id
     phrase = random.choice(PHRASES)
@@ -119,31 +119,25 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        # Use direct API call
-        url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"  # Default voice ID
-        headers = {
-            "xi-api-key": api_key,
-            "Content-Type": "application/json"
-        }
-        data = {
-            "text": phrase,
-            "model_id": "eleven_monolingual_v1"
-        }
+        # Use ElevenLabs client as per documentation
+        elevenlabs = ElevenLabs(api_key=api_key)
         
-        response = requests.post(url, headers=headers, json=data)
-        if response.status_code == 200:
-            # Save audio to a temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-                f.write(response.content)
-                audio_path = f.name
-                
-            # Send audio to user
-            with open(audio_path, "rb") as audio_file:
-                await update.message.reply_voice(audio_file)
-            os.remove(audio_path)
-        else:
-            print(f"ElevenLabs API error: {response.status_code} - {response.text}")
-            await update.message.reply_text("❗ Sorry, could not generate pronunciation audio.")
+        audio = elevenlabs.text_to_speech.convert(
+            text=phrase,
+            voice_id="JBFqnCBsd6RMkjVDRZzb",  # Using the voice from documentation
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
+        )
+        
+        # Save audio to a temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+            f.write(audio)
+            audio_path = f.name
+            
+        # Send audio to user
+        with open(audio_path, "rb") as audio_file:
+            await update.message.reply_voice(audio_file)
+        os.remove(audio_path)
         
     except Exception as e:
         print(f"ElevenLabs error: {e}")
@@ -204,48 +198,27 @@ async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        # Debug: Check API key format
-        if not api_key.startswith("sk_"):
-            await update.message.reply_text("❗ ElevenLabs API key format looks wrong. Should start with 'sk_'")
-            return
-            
-        await update.message.reply_text(f"🔑 API Key found: {api_key[:10]}...")
-            
-        # Use direct API call
-        url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"  # Default voice ID
-        headers = {
-            "xi-api-key": api_key,
-            "Content-Type": "application/json"
-        }
-        data = {
-            "text": "Hello! This is a test of ElevenLabs text to speech.",
-            "model_id": "eleven_monolingual_v1"
-        }
+        # Use ElevenLabs client as per documentation
+        elevenlabs = ElevenLabs(api_key=api_key)
         
-        response = requests.post(url, headers=headers, json=data)
-        print(f"ElevenLabs API response: {response.status_code} - {response.text}")
+        audio = elevenlabs.text_to_speech.convert(
+            text="The first move is what sets everything in motion.",
+            voice_id="JBFqnCBsd6RMkjVDRZzb",  # Using the voice from documentation
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
+        )
         
-        if response.status_code == 200:
-            # Save audio to a temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-                f.write(response.content)
-                audio_path = f.name
-                
-            # Send audio to user
-            with open(audio_path, "rb") as audio_file:
-                await update.message.reply_voice(audio_file)
-            os.remove(audio_path)
+        # Save audio to a temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+            f.write(audio)
+            audio_path = f.name
             
-            await update.message.reply_text("✅ ElevenLabs TTS test successful!")
-        else:
-            error_msg = f"❌ ElevenLabs test failed: API returned {response.status_code}"
-            if response.status_code == 401:
-                error_msg += "\n\nThis means your API key is invalid or doesn't have TTS permissions."
-                error_msg += "\n\nPlease check:"
-                error_msg += "\n1. API key format (should start with 'sk_')"
-                error_msg += "\n2. API key permissions in ElevenLabs dashboard"
-                error_msg += "\n3. That the key is correctly set in Render environment variables"
-            await update.message.reply_text(error_msg)
+        # Send audio to user
+        with open(audio_path, "rb") as audio_file:
+            await update.message.reply_voice(audio_file)
+        os.remove(audio_path)
+        
+        await update.message.reply_text("✅ ElevenLabs TTS test successful!")
         
     except Exception as e:
         print(f"ElevenLabs test error: {e}")
