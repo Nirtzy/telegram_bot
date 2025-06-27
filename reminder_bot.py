@@ -129,9 +129,12 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
             output_format="mp3_44100_128",
         )
         
+        # Convert generator to bytes
+        audio_bytes = b''.join(audio)
+        
         # Save audio to a temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-            f.write(audio)
+            f.write(audio_bytes)
             audio_path = f.name
             
         # Send audio to user
@@ -208,9 +211,12 @@ async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             output_format="mp3_44100_128",
         )
         
+        # Convert generator to bytes
+        audio_bytes = b''.join(audio)
+        
         # Save audio to a temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-            f.write(audio)
+            f.write(audio_bytes)
             audio_path = f.name
             
         # Send audio to user
