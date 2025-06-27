@@ -12,7 +12,7 @@ import subprocess
 import json
 import requests
 import difflib
-from elevenlabs import generate, save, set_api_key
+from elevenlabs import Client
 
 load_dotenv()
 
@@ -106,6 +106,7 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import tempfile
     import shutil
+    from elevenlabs import Client
 
     user_id = update.effective_user.id
     phrase = random.choice(PHRASES)
@@ -120,10 +121,10 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        set_api_key(api_key)
+        client = Client(api_key)
         
         # Generate audio using the default voice
-        audio = generate(
+        audio = client.generate(
             text=phrase,
             voice="Adam",  # Use default voice name instead of ID
             model="eleven_monolingual_v1"
@@ -131,7 +132,7 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Save audio to a temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-            save(audio, f.name)
+            f.write(audio)
             audio_path = f.name
             
         # Send audio to user
@@ -189,7 +190,7 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Simple test command to check if ElevenLabs TTS is working"""
     import tempfile
-    from elevenlabs import generate, save, set_api_key
+    from elevenlabs import Client
 
     await update.message.reply_text("🔊 Testing ElevenLabs TTS...")
 
@@ -199,10 +200,10 @@ async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        set_api_key(api_key)
+        client = Client(api_key)
         
         # Generate a simple test audio
-        audio = generate(
+        audio = client.generate(
             text="Hello! This is a test of ElevenLabs text to speech.",
             voice="Adam",
             model="eleven_monolingual_v1"
@@ -210,7 +211,7 @@ async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Save audio to a temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-            save(audio, f.name)
+            f.write(audio)
             audio_path = f.name
             
         # Send audio to user
