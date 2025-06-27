@@ -52,6 +52,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/vocab - Get 10 random Python terms with definitions\n"
         "/score - Show your quiz score\n"
         "/pronounce - Practice pronunciation\n"
+        "/test_tts - Test ElevenLabs text-to-speech\n"
         "/help - Show this help message"
     )
 
@@ -185,6 +186,44 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(file_path)
     os.remove(mp3_path)
 
+async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Simple test command to check if ElevenLabs TTS is working"""
+    import tempfile
+    from elevenlabs import generate, save, set_api_key
+
+    await update.message.reply_text("🔊 Testing ElevenLabs TTS...")
+
+    try:
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            await update.message.reply_text("❗ ElevenLabs API key not configured.")
+            return
+            
+        set_api_key(api_key)
+        
+        # Generate a simple test audio
+        audio = generate(
+            text="Hello! This is a test of ElevenLabs text to speech.",
+            voice="Adam",
+            model="eleven_monolingual_v1"
+        )
+        
+        # Save audio to a temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+            save(audio, f.name)
+            audio_path = f.name
+            
+        # Send audio to user
+        with open(audio_path, "rb") as audio_file:
+            await update.message.reply_voice(audio_file)
+        os.remove(audio_path)
+        
+        await update.message.reply_text("✅ ElevenLabs TTS test successful!")
+        
+    except Exception as e:
+        print(f"ElevenLabs test error: {e}")
+        await update.message.reply_text(f"❌ ElevenLabs test failed: {str(e)}")
+
 def main():
     print("Starting main()...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -196,6 +235,7 @@ def main():
     app.add_handler(CommandHandler("vocab", vocab))
     app.add_handler(CommandHandler("score", score))
     app.add_handler(CommandHandler("pronounce", pronounce))
+    app.add_handler(CommandHandler("test_tts", test_tts))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
     app.add_handler(MessageHandler(filters.VOICE, voice_handler))
     print("🤖 Bot is running in polling mode...")
