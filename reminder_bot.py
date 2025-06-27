@@ -12,7 +12,7 @@ import subprocess
 import json
 import requests
 import difflib
-from elevenlabs import Client
+from elevenlabs import client
 
 load_dotenv()
 
@@ -106,7 +106,7 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import tempfile
     import shutil
-    from elevenlabs import Client
+    from elevenlabs import client
 
     user_id = update.effective_user.id
     phrase = random.choice(PHRASES)
@@ -121,10 +121,10 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        client = Client(api_key)
+        elevenlabs_client = client(api_key)
         
         # Generate audio using the default voice
-        audio = client.generate(
+        audio = elevenlabs_client.generate(
             text=phrase,
             voice="Adam",  # Use default voice name instead of ID
             model="eleven_monolingual_v1"
@@ -190,7 +190,7 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Simple test command to check if ElevenLabs TTS is working"""
     import tempfile
-    from elevenlabs import Client
+    from elevenlabs import client
 
     await update.message.reply_text("🔊 Testing ElevenLabs TTS...")
 
@@ -200,10 +200,10 @@ async def test_tts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ ElevenLabs API key not configured.")
             return
             
-        client = Client(api_key)
+        elevenlabs_client = client(api_key)
         
         # Generate a simple test audio
-        audio = client.generate(
+        audio = elevenlabs_client.generate(
             text="Hello! This is a test of ElevenLabs text to speech.",
             voice="Adam",
             model="eleven_monolingual_v1"
