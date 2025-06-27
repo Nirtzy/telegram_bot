@@ -12,6 +12,7 @@ import subprocess
 import json
 import requests
 import difflib
+from elevenlabs import generate, save, set_api_key
 
 load_dotenv()
 
@@ -102,10 +103,8 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❓ I didn't understand that. Use /help to see available commands.")
 
 async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    import requests
     import tempfile
     import shutil
-    import uuid
 
     user_id = update.effective_user.id
     phrase = random.choice(PHRASES)
@@ -114,30 +113,34 @@ async def pronounce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🔊 Please listen and repeat:\n\n{phrase}")
 
     # Generate TTS audio with ElevenLabs
-    api_key = os.getenv("ELEVENLABS_API_KEY")
-    voice_id = "pNInz6obpgDQGcFmaJgB"  # Default voice (Adam)
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    headers = {
-        "xi-api-key": api_key,
-        "Content-Type": "application/json"
-    }
-    data = {
-        "text": phrase,
-        "model_id": "eleven_monolingual_v1"
-    }
-    response = requests.post(url, headers=headers, json=data, stream=True)
-    if response.status_code == 200:
+    try:
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            await update.message.reply_text("❗ ElevenLabs API key not configured.")
+            return
+            
+        set_api_key(api_key)
+        
+        # Generate audio using the default voice
+        audio = generate(
+            text=phrase,
+            voice="Adam",  # Use default voice name instead of ID
+            model="eleven_monolingual_v1"
+        )
+        
         # Save audio to a temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-            shutil.copyfileobj(response.raw, f)
+            save(audio, f.name)
             audio_path = f.name
+            
         # Send audio to user
         with open(audio_path, "rb") as audio_file:
             await update.message.reply_voice(audio_file)
         os.remove(audio_path)
-    else:
-        print("ElevenLabs error:", response.status_code, response.text)
-        await update.message.reply_text("❗ Sorry, could not generate pronunciation audio.")
+        
+    except Exception as e:
+        print(f"ElevenLabs error: {e}")
+        await update.message.reply_text("❗ Sorry, could not generate pronunciation audio. Please check your ElevenLabs API key.")
 
 async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
